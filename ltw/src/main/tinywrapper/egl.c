@@ -3,15 +3,19 @@
  * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
-#include "egl.h"\n
+#include "egl.h"
+
 // Macro para criar wrappers EGL
-#define EGL_WRAPPER(ret, name, ...) \
-    ret name(__VA_ARGS__) { \
-        static ret (*func)(__VA_ARGS__) = NULL; \
-        if (!func) func = (ret (*)(__VA_ARGS__))ltw_dlsym("egl" #name); \
-        return func ? func(__VA_ARGS__) : (ret)0; \
-    }
-\n
+
+**
+ * Created by: artDev
+ * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
+ * For use under LGPL-3.0
+ */
+#include "egl.h"
+
+// Macro para criar wrappers EGL
+
 // Função para obter símbolos da libEGL_angle.so
 static void* ltw_dlsym(const char* name) {
     static void* egl_handle = NULL;
@@ -138,7 +142,8 @@ void build_extension_string(context_t* context) {
     if(context->buffer_storage) {
         if(!env_istrue("LTW_HIDE_BUFFER_STORAGE"))
             add_extra_extension(context, &length, "GL_ARB_buffer_storage");
-        else printf("LTW: The buffer storage extension is hidden.\n");
+        else printf("LTW: The buffer storage extension is hidden.
+");
     }
     if(context->buffer_texture_ext || context->es32) {
         add_extra_extension(context, &length, "GL_ARB_texture_buffer_object");
@@ -161,10 +166,12 @@ static void find_esversion(context_t* context) {
     sscanf(version, " OpenGL ES %i.%i", &esmajor, &esminor);
     sscanf(shader_version, " OpenGL ES GLSL ES %i.%i", &shadermajor, &shaderminor);
     context->shader_version = shadermajor * 100 + shaderminor;
-    printf("LTW: Running on OpenGL ES %i.%i with ESSL %i\n", esmajor, esminor, context->shader_version);
+    printf("LTW: Running on OpenGL ES %i.%i with ESSL %i
+", esmajor, esminor, context->shader_version);
     if(esmajor == 0 && esminor == 0) goto fail;
     if(esmajor < 3 || context->shader_version < 300) {
-        printf("Unsupported OpenGL ES version. This will cause you problems down the line.\n");
+        printf("Unsupported OpenGL ES version. This will cause you problems down the line.
+");
         return;
     }
     if(esmajor == 3) {
@@ -268,7 +275,8 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
     }
     context_t* tw_context = unordered_map_get(context_map, ctx);
     if(tw_context == NULL) {
-        printf("TinywrapperEGL: Failed to find context %p\n", ctx);
+        printf("TinywrapperEGL: Failed to find context %p
+", ctx);
         abort();
     }
     if(!tw_context->context_rdy) {

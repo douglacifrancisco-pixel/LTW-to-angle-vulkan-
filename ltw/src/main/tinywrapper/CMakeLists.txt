@@ -31,8 +31,7 @@ foreach(symbol IN LISTS LTW_EGL_KEEP_SYMBOLS)
 endforeach()
 
 target_link_options(ltw PUBLIC
-    "
-    ${LTW_EGL_KEEP_LINK_OPTIONS}
+    -fvisibility=default
     -ffunction-sections
     -fdata-sections
     -flto

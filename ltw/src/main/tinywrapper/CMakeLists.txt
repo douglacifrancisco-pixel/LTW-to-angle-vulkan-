@@ -30,7 +30,7 @@ foreach(symbol IN LISTS LTW_EGL_KEEP_SYMBOLS)
     list(APPEND LTW_EGL_KEEP_LINK_OPTIONS "-Wl,--undefined=${symbol}")
 endforeach()
 
-target_link_options(ltw PUBLIC
+add_compile_options(-fvisibility=default)\ntarget_link_options(ltw PUBLIC
     
     
     

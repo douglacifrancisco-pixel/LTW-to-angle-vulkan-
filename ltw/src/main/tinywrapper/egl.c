@@ -3,7 +3,32 @@
  * Copyright (c) 2025 artDev, SerpentSpirale, CADIndie.
  * For use under LGPL-3.0
  */
-#include "egl.h"
+#include "egl.h"\n
+// Macro para criar wrappers EGL
+#define EGL_WRAPPER(ret, name, ...) \
+    ret name(__VA_ARGS__) { \
+        static ret (*func)(__VA_ARGS__) = NULL; \
+        if (!func) func = (ret (*)(__VA_ARGS__))ltw_dlsym("egl" #name); \
+        return func ? func(__VA_ARGS__) : (ret)0; \
+    }
+\n
+// Função para obter símbolos da libEGL_angle.so
+static void* ltw_dlsym(const char* name) {
+    static void* egl_handle = NULL;
+    if (!egl_handle) {
+        egl_handle = dlopen("libEGL_angle.so", RTLD_LAZY | RTLD_GLOBAL);
+        if (!egl_handle) {
+            LTW_LOG("LTW: Failed to load libEGL_angle.so: %s", dlerror());
+            return NULL;
+        }
+    }
+    void* symbol = dlsym(egl_handle, name);
+    if (!symbol) {
+        LTW_LOG("LTW: Missing symbol: %s", name);
+    }
+    return symbol;
+}
+
 #include "unordered_map/int_hash.h"
 #include "string_utils.h"
 #include "env.h"
@@ -383,3 +408,28 @@ __attribute__((constructor, used)) static void ltw_force_egl_symbols(void) {
         printf("LTW: EGL symbols retained via constructor\n");
     }
 }
+\n
+// === WRAPPERS EGL ===
+EGL_WRAPPER(EGLDisplay, eglGetDisplay, EGLNativeDisplayType display_id)
+EGL_WRAPPER(EGLBoolean, eglInitialize, EGLDisplay dpy, EGLint *major, EGLint *minor)
+EGL_WRAPPER(EGLBoolean, eglTerminate, EGLDisplay dpy)
+EGL_WRAPPER(EGLBoolean, eglChooseConfig, EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *configs, EGLint config_size, EGLint *num_config)
+EGL_WRAPPER(EGLBoolean, eglGetConfigs, EGLDisplay dpy, EGLConfig *configs, EGLint config_size, EGLint *num_config)
+EGL_WRAPPER(EGLBoolean, eglGetConfigAttrib, EGLDisplay dpy, EGLConfig config, EGLint attribute, EGLint *value)
+EGL_WRAPPER(EGLSurface, eglCreateWindowSurface, EGLDisplay dpy, EGLConfig config, EGLNativeWindowType win, const EGLint *attrib_list)
+EGL_WRAPPER(EGLSurface, eglCreatePbufferSurface, EGLDisplay dpy, EGLConfig config, const EGLint *attrib_list)
+EGL_WRAPPER(EGLSurface, eglCreatePixmapSurface, EGLDisplay dpy, EGLConfig config, EGLNativePixmapType pixmap, const EGLint *attrib_list)
+EGL_WRAPPER(EGLBoolean, eglDestroySurface, EGLDisplay dpy, EGLSurface surface)
+EGL_WRAPPER(EGLBoolean, eglQuerySurface, EGLDisplay dpy, EGLSurface surface, EGLint attribute, EGLint *value)
+EGL_WRAPPER(EGLBoolean, eglSwapBuffers, EGLDisplay dpy, EGLSurface surface)
+EGL_WRAPPER(EGLBoolean, eglCopyBuffers, EGLDisplay dpy, EGLSurface surface, EGLNativePixmapType target)
+EGL_WRAPPER(EGLBoolean, eglMakeCurrent, EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGLContext ctx)
+EGL_WRAPPER(EGLContext, eglCreateContext, EGLDisplay dpy, EGLConfig config, EGLContext share_context, const EGLint *attrib_list)
+EGL_WRAPPER(EGLBoolean, eglDestroyContext, EGLDisplay dpy, EGLContext ctx)
+EGL_WRAPPER(EGLContext, eglGetCurrentContext, void)
+EGL_WRAPPER(EGLDisplay, eglGetCurrentDisplay, void)
+EGL_WRAPPER(EGLSurface, eglGetCurrentSurface, EGLint readdraw)
+EGL_WRAPPER(const char *, eglQueryString, EGLDisplay dpy, EGLint name)
+EGL_WRAPPER(EGLint, eglGetError, void)
+EGL_WRAPPER(__eglMustCastToProperFunctionPointerType, eglGetProcAddress, const char *procname)
+\n

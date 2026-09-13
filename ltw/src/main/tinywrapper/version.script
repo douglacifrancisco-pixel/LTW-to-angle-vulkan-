@@ -1,4 +1,17 @@
 {
    global: gl*; egl*;
+        eglGetDisplay;
+        eglInitialize;
+        eglTerminate;
+        eglChooseConfig;
+        eglGetError;
+        eglQueryString;
+        eglCreateWindowSurface;
+        eglCreatePbufferSurface;
+        eglDestroySurface;
+        eglSwapBuffers;
+        eglGetCurrentContext;
+        eglGetCurrentDisplay;
+        eglGetCurrentSurface;
    local: *;
 };

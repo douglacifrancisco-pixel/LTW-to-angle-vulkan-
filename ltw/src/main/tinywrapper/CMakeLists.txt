@@ -9,7 +9,35 @@ add_subdirectory(unordered_map)
 add_subdirectory(vgpu_shaderconv)
 add_subdirectory(glsl_optimizer)
 
-target_link_options(ltw PUBLIC  -Wl,--version-script=${CMAKE_SOURCE_DIR}/version.script -ffunction-sections -fdata-sections -flto -Wl,--gc-sections)
+set(LTW_EGL_KEEP_SYMBOLS
+    eglGetDisplay
+    eglInitialize
+    eglTerminate
+    eglChooseConfig
+    eglGetError
+    eglQueryString
+    eglCreateWindowSurface
+    eglCreatePbufferSurface
+    eglDestroySurface
+    eglSwapBuffers
+    eglGetCurrentContext
+    eglGetCurrentDisplay
+    eglGetCurrentSurface
+)
+
+set(LTW_EGL_KEEP_LINK_OPTIONS)
+foreach(symbol IN LISTS LTW_EGL_KEEP_SYMBOLS)
+    list(APPEND LTW_EGL_KEEP_LINK_OPTIONS "-Wl,--undefined=${symbol}")
+endforeach()
+
+target_link_options(ltw PUBLIC
+    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/version.script"
+    ${LTW_EGL_KEEP_LINK_OPTIONS}
+    -ffunction-sections
+    -fdata-sections
+    -flto
+    -Wl,--gc-sections
+)
 target_link_libraries(ltw unordered_map vgpu_shaderconv glsl_optimizer)
 if(ANDROID)
 	target_link_libraries(ltw log)

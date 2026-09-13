@@ -256,7 +256,7 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
 
 
 // === EGL WRAPPERS FOR LWJGL/GLFW DLSYM COMPATIBILITY ===
-#define EGL_ATTR __attribute__((visibility("default"), used, externally_visible))
+#define EGL_ATTR __attribute__((visibility("default"), used))
 
 static EGLDisplay (*host_eglGetDisplay)(EGLNativeDisplayType) = NULL;
 EGL_ATTR EGLDisplay eglGetDisplay(EGLNativeDisplayType display_id) {
@@ -334,4 +334,29 @@ static EGLSurface (*host_eglGetCurrentSurface)(EGLint) = NULL;
 EGL_ATTR EGLSurface eglGetCurrentSurface(EGLint readdraw) {
     if (!host_eglGetCurrentSurface) host_eglGetCurrentSurface = (EGLSurface (*)(EGLint))host_eglGetProcAddress("eglGetCurrentSurface");
     return host_eglGetCurrentSurface ? host_eglGetCurrentSurface(readdraw) : EGL_NO_SURFACE;
+}
+
+// === FORCE SYMBOL RETENTION ===
+// Esta função constructor cria referências a todas as funções EGL,
+// impedindo que o LTO as elimine como "dead code".
+__attribute__((constructor, used)) static void force_egl_symbol_retention(void) {
+    volatile void* refs[] = {
+        (void*)eglGetDisplay,
+        (void*)eglInitialize,
+        (void*)eglTerminate,
+        (void*)eglChooseConfig,
+        (void*)eglGetError,
+        (void*)eglQueryString,
+        (void*)eglCreateWindowSurface,
+        (void*)eglCreatePbufferSurface,
+        (void*)eglDestroySurface,
+        (void*)eglSwapBuffers,
+        (void*)eglGetCurrentContext,
+        (void*)eglGetCurrentDisplay,
+        (void*)eglGetCurrentSurface,
+        (void*)eglCreateContext,
+        (void*)eglDestroyContext,
+        (void*)eglMakeCurrent
+    };
+    (void)refs; // Evita warning de variável não usada
 }

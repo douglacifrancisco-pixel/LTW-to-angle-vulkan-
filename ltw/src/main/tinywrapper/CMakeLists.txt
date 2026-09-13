@@ -31,7 +31,7 @@ foreach(symbol IN LISTS LTW_EGL_KEEP_SYMBOLS)
 endforeach()
 
 target_link_options(ltw PUBLIC
-    "-Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/version.script"
+    "
     ${LTW_EGL_KEEP_LINK_OPTIONS}
     -ffunction-sections
     -fdata-sections

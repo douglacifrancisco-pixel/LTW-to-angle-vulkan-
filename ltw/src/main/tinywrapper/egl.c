@@ -256,7 +256,7 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
 
 
 // === EGL WRAPPERS FOR LWJGL/GLFW DLSYM COMPATIBILITY ===
-#define EGL_ATTR __attribute__((visibility("default")))
+#define EGL_ATTR __attribute__((visibility("default"), used))
 
 static EGLDisplay (*host_eglGetDisplay)(EGLNativeDisplayType) = NULL;
 EGL_ATTR EGLDisplay eglGetDisplay(EGLNativeDisplayType display_id) {

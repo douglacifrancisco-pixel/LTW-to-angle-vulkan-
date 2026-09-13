@@ -34,8 +34,8 @@ target_link_options(ltw PUBLIC
     -fvisibility=default
     -ffunction-sections
     -fdata-sections
-    -flto
-    -Wl,--gc-sections
+    
+    -Wl,--no-gc-sections
 )
 target_link_libraries(ltw unordered_map vgpu_shaderconv glsl_optimizer)
 if(ANDROID)

@@ -360,3 +360,26 @@ __attribute__((constructor, used)) static void force_egl_symbol_retention(void) 
     };
     (void)refs; // Evita warning de variável não usada
 }
+
+// === FORÇA RETENÇÃO DE SÍMBOLOS EGL (CONSTRUCTOR) ===
+__attribute__((constructor, used)) static void ltw_force_egl_symbols(void) {
+    void* volatile (*funcs[])() = {
+        (void*(*)())eglGetDisplay,
+        (void*(*)())eglInitialize,
+        (void*(*)())eglTerminate,
+        (void*(*)())eglChooseConfig,
+        (void*(*)())eglCreateWindowSurface,
+        (void*(*)())eglCreatePbufferSurface,
+        (void*(*)())eglDestroySurface,
+        (void*(*)())eglSwapBuffers,
+        (void*(*)())eglMakeCurrent,
+        (void*(*)())eglGetCurrentContext,
+        (void*(*)())eglGetCurrentDisplay,
+        (void*(*)())eglGetCurrentSurface,
+        (void*(*)())eglQueryString,
+        (void*(*)())eglGetError
+    };
+    if (funcs[0] != NULL) {
+        printf("LTW: EGL symbols retained via constructor\n");
+    }
+}

@@ -253,3 +253,26 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
     current_context = tw_context;
     return EGL_TRUE;
 }
+
+// === EGL WRAPPERS FOR LWJGL/GLFW DLSYM COMPATIBILITY ===
+#define EGL_WRAPPER(ret, name, args) \
+    typedef ret (*PFN_ ## name) args; \
+    static PFN_ ## name host_ ## name = NULL; \
+    __attribute__((visibility("default"))) ret name args { \
+        if (!host_ ## name) host_ ## name = (PFN_ ## name)host_eglGetProcAddress(#name); \
+        return host_ ## name args; \
+    }
+
+EGL_WRAPPER(EGLDisplay, eglGetDisplay, (EGLNativeDisplayType display_id))
+EGL_WRAPPER(EGLBoolean, eglInitialize, (EGLDisplay dpy, EGLint *major, EGLint *minor))
+EGL_WRAPPER(EGLBoolean, eglTerminate, (EGLDisplay dpy))
+EGL_WRAPPER(EGLBoolean, eglChooseConfig, (EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *configs, EGLint config_size, EGLint *num_config))
+EGL_WRAPPER(EGLint, eglGetError, (void))
+EGL_WRAPPER(const char*, eglQueryString, (EGLDisplay dpy, EGLint name))
+EGL_WRAPPER(EGLSurface, eglCreateWindowSurface, (EGLDisplay dpy, EGLConfig config, EGLNativeWindowType win, const EGLint *attrib_list))
+EGL_WRAPPER(EGLSurface, eglCreatePbufferSurface, (EGLDisplay dpy, EGLConfig config, const EGLint *attrib_list))
+EGL_WRAPPER(EGLBoolean, eglDestroySurface, (EGLDisplay dpy, EGLSurface surface))
+EGL_WRAPPER(EGLBoolean, eglSwapBuffers, (EGLDisplay dpy, EGLSurface surface))
+EGL_WRAPPER(EGLContext, eglGetCurrentContext, (void))
+EGL_WRAPPER(EGLDisplay, eglGetCurrentDisplay, (void))
+EGL_WRAPPER(EGLSurface, eglGetCurrentSurface, (EGLint readdraw))

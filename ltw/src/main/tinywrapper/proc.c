@@ -151,6 +151,19 @@ eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
         if(!strcmp("eglCreateContext", procname)) return (eglMustCastToProperFunctionPointerType) eglCreateContext;
         if(!strcmp("eglDestroyContext", procname)) return (eglMustCastToProperFunctionPointerType) eglDestroyContext;
         if(!strcmp("eglMakeCurrent", procname)) return (eglMustCastToProperFunctionPointerType) eglMakeCurrent;
+        if(!strcmp("eglGetDisplay", procname)) return (eglMustCastToProperFunctionPointerType) eglGetDisplay;
+        if(!strcmp("eglInitialize", procname)) return (eglMustCastToProperFunctionPointerType) eglInitialize;
+        if(!strcmp("eglTerminate", procname)) return (eglMustCastToProperFunctionPointerType) eglTerminate;
+        if(!strcmp("eglChooseConfig", procname)) return (eglMustCastToProperFunctionPointerType) eglChooseConfig;
+        if(!strcmp("eglGetError", procname)) return (eglMustCastToProperFunctionPointerType) eglGetError;
+        if(!strcmp("eglQueryString", procname)) return (eglMustCastToProperFunctionPointerType) eglQueryString;
+        if(!strcmp("eglCreateWindowSurface", procname)) return (eglMustCastToProperFunctionPointerType) eglCreateWindowSurface;
+        if(!strcmp("eglCreatePbufferSurface", procname)) return (eglMustCastToProperFunctionPointerType) eglCreatePbufferSurface;
+        if(!strcmp("eglDestroySurface", procname)) return (eglMustCastToProperFunctionPointerType) eglDestroySurface;
+        if(!strcmp("eglSwapBuffers", procname)) return (eglMustCastToProperFunctionPointerType) eglSwapBuffers;
+        if(!strcmp("eglGetCurrentContext", procname)) return (eglMustCastToProperFunctionPointerType) eglGetCurrentContext;
+        if(!strcmp("eglGetCurrentDisplay", procname)) return (eglMustCastToProperFunctionPointerType) eglGetCurrentDisplay;
+        if(!strcmp("eglGetCurrentSurface", procname)) return (eglMustCastToProperFunctionPointerType) eglGetCurrentSurface;
     }
     // If the function doesn't start with "gl", don't even bother, pass through immediately.
     if(strncmp(procname, "gl", 2) != 0) goto fallback;

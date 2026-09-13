@@ -254,25 +254,84 @@ EGLBoolean eglMakeCurrent (EGLDisplay dpy, EGLSurface draw, EGLSurface read, EGL
     return EGL_TRUE;
 }
 
-// === EGL WRAPPERS FOR LWJGL/GLFW DLSYM COMPATIBILITY ===
-#define EGL_WRAPPER(ret, name, args) \
-    typedef ret (*PFN_ ## name) args; \
-    static PFN_ ## name host_ ## name = NULL; \
-    __attribute__((visibility("default"))) ret name args { \
-        if (!host_ ## name) host_ ## name = (PFN_ ## name)host_eglGetProcAddress(#name); \
-        return host_ ## name args; \
-    }
 
-EGL_WRAPPER(EGLDisplay, eglGetDisplay, (EGLNativeDisplayType display_id))
-EGL_WRAPPER(EGLBoolean, eglInitialize, (EGLDisplay dpy, EGLint *major, EGLint *minor))
-EGL_WRAPPER(EGLBoolean, eglTerminate, (EGLDisplay dpy))
-EGL_WRAPPER(EGLBoolean, eglChooseConfig, (EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *configs, EGLint config_size, EGLint *num_config))
-EGL_WRAPPER(EGLint, eglGetError, (void))
-EGL_WRAPPER(const char*, eglQueryString, (EGLDisplay dpy, EGLint name))
-EGL_WRAPPER(EGLSurface, eglCreateWindowSurface, (EGLDisplay dpy, EGLConfig config, EGLNativeWindowType win, const EGLint *attrib_list))
-EGL_WRAPPER(EGLSurface, eglCreatePbufferSurface, (EGLDisplay dpy, EGLConfig config, const EGLint *attrib_list))
-EGL_WRAPPER(EGLBoolean, eglDestroySurface, (EGLDisplay dpy, EGLSurface surface))
-EGL_WRAPPER(EGLBoolean, eglSwapBuffers, (EGLDisplay dpy, EGLSurface surface))
-EGL_WRAPPER(EGLContext, eglGetCurrentContext, (void))
-EGL_WRAPPER(EGLDisplay, eglGetCurrentDisplay, (void))
-EGL_WRAPPER(EGLSurface, eglGetCurrentSurface, (EGLint readdraw))
+// === EGL WRAPPERS FOR LWJGL/GLFW DLSYM COMPATIBILITY ===
+#define EGL_ATTR __attribute__((visibility("default")))
+
+static EGLDisplay (*host_eglGetDisplay)(EGLNativeDisplayType) = NULL;
+EGL_ATTR EGLDisplay eglGetDisplay(EGLNativeDisplayType display_id) {
+    if (!host_eglGetDisplay) host_eglGetDisplay = (EGLDisplay (*)(EGLNativeDisplayType))host_eglGetProcAddress("eglGetDisplay");
+    return host_eglGetDisplay ? host_eglGetDisplay(display_id) : EGL_NO_DISPLAY;
+}
+
+static EGLBoolean (*host_eglInitialize)(EGLDisplay, EGLint*, EGLint*) = NULL;
+EGL_ATTR EGLBoolean eglInitialize(EGLDisplay dpy, EGLint *major, EGLint *minor) {
+    if (!host_eglInitialize) host_eglInitialize = (EGLBoolean (*)(EGLDisplay, EGLint*, EGLint*))host_eglGetProcAddress("eglInitialize");
+    return host_eglInitialize ? host_eglInitialize(dpy, major, minor) : EGL_FALSE;
+}
+
+static EGLBoolean (*host_eglTerminate)(EGLDisplay) = NULL;
+EGL_ATTR EGLBoolean eglTerminate(EGLDisplay dpy) {
+    if (!host_eglTerminate) host_eglTerminate = (EGLBoolean (*)(EGLDisplay))host_eglGetProcAddress("eglTerminate");
+    return host_eglTerminate ? host_eglTerminate(dpy) : EGL_FALSE;
+}
+
+static EGLBoolean (*host_eglChooseConfig)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*) = NULL;
+EGL_ATTR EGLBoolean eglChooseConfig(EGLDisplay dpy, const EGLint *attrib_list, EGLConfig *configs, EGLint config_size, EGLint *num_config) {
+    if (!host_eglChooseConfig) host_eglChooseConfig = (EGLBoolean (*)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*))host_eglGetProcAddress("eglChooseConfig");
+    return host_eglChooseConfig ? host_eglChooseConfig(dpy, attrib_list, configs, config_size, num_config) : EGL_FALSE;
+}
+
+static EGLint (*host_eglGetError)(void) = NULL;
+EGL_ATTR EGLint eglGetError(void) {
+    if (!host_eglGetError) host_eglGetError = (EGLint (*)(void))host_eglGetProcAddress("eglGetError");
+    return host_eglGetError ? host_eglGetError() : 0x3000;
+}
+
+static const char* (*host_eglQueryString)(EGLDisplay, EGLint) = NULL;
+EGL_ATTR const char* eglQueryString(EGLDisplay dpy, EGLint name) {
+    if (!host_eglQueryString) host_eglQueryString = (const char* (*)(EGLDisplay, EGLint))host_eglGetProcAddress("eglQueryString");
+    return host_eglQueryString ? host_eglQueryString(dpy, name) : NULL;
+}
+
+static EGLSurface (*host_eglCreateWindowSurface)(EGLDisplay, EGLConfig, EGLNativeWindowType, const EGLint*) = NULL;
+EGL_ATTR EGLSurface eglCreateWindowSurface(EGLDisplay dpy, EGLConfig config, EGLNativeWindowType win, const EGLint *attrib_list) {
+    if (!host_eglCreateWindowSurface) host_eglCreateWindowSurface = (EGLSurface (*)(EGLDisplay, EGLConfig, EGLNativeWindowType, const EGLint*))host_eglGetProcAddress("eglCreateWindowSurface");
+    return host_eglCreateWindowSurface ? host_eglCreateWindowSurface(dpy, config, win, attrib_list) : EGL_NO_SURFACE;
+}
+
+static EGLSurface (*host_eglCreatePbufferSurface)(EGLDisplay, EGLConfig, const EGLint*) = NULL;
+EGL_ATTR EGLSurface eglCreatePbufferSurface(EGLDisplay dpy, EGLConfig config, const EGLint *attrib_list) {
+    if (!host_eglCreatePbufferSurface) host_eglCreatePbufferSurface = (EGLSurface (*)(EGLDisplay, EGLConfig, const EGLint*))host_eglGetProcAddress("eglCreatePbufferSurface");
+    return host_eglCreatePbufferSurface ? host_eglCreatePbufferSurface(dpy, config, attrib_list) : EGL_NO_SURFACE;
+}
+
+static EGLBoolean (*host_eglDestroySurface)(EGLDisplay, EGLSurface) = NULL;
+EGL_ATTR EGLBoolean eglDestroySurface(EGLDisplay dpy, EGLSurface surface) {
+    if (!host_eglDestroySurface) host_eglDestroySurface = (EGLBoolean (*)(EGLDisplay, EGLSurface))host_eglGetProcAddress("eglDestroySurface");
+    return host_eglDestroySurface ? host_eglDestroySurface(dpy, surface) : EGL_FALSE;
+}
+
+static EGLBoolean (*host_eglSwapBuffers)(EGLDisplay, EGLSurface) = NULL;
+EGL_ATTR EGLBoolean eglSwapBuffers(EGLDisplay dpy, EGLSurface surface) {
+    if (!host_eglSwapBuffers) host_eglSwapBuffers = (EGLBoolean (*)(EGLDisplay, EGLSurface))host_eglGetProcAddress("eglSwapBuffers");
+    return host_eglSwapBuffers ? host_eglSwapBuffers(dpy, surface) : EGL_FALSE;
+}
+
+static EGLContext (*host_eglGetCurrentContext)(void) = NULL;
+EGL_ATTR EGLContext eglGetCurrentContext(void) {
+    if (!host_eglGetCurrentContext) host_eglGetCurrentContext = (EGLContext (*)(void))host_eglGetProcAddress("eglGetCurrentContext");
+    return host_eglGetCurrentContext ? host_eglGetCurrentContext() : EGL_NO_CONTEXT;
+}
+
+static EGLDisplay (*host_eglGetCurrentDisplay)(void) = NULL;
+EGL_ATTR EGLDisplay eglGetCurrentDisplay(void) {
+    if (!host_eglGetCurrentDisplay) host_eglGetCurrentDisplay = (EGLDisplay (*)(void))host_eglGetProcAddress("eglGetCurrentDisplay");
+    return host_eglGetCurrentDisplay ? host_eglGetCurrentDisplay() : EGL_NO_DISPLAY;
+}
+
+static EGLSurface (*host_eglGetCurrentSurface)(EGLint) = NULL;
+EGL_ATTR EGLSurface eglGetCurrentSurface(EGLint readdraw) {
+    if (!host_eglGetCurrentSurface) host_eglGetCurrentSurface = (EGLSurface (*)(EGLint))host_eglGetProcAddress("eglGetCurrentSurface");
+    return host_eglGetCurrentSurface ? host_eglGetCurrentSurface(readdraw) : EGL_NO_SURFACE;
+}

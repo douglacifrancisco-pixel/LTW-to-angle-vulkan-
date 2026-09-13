@@ -6,6 +6,7 @@
 #include <EGL/egl.h>
 #include <GLES3/gl31.h>
 #include <dlfcn.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,28 +39,95 @@ static void init_es3_proc() {
 #undef GLESFUNC
 }
 
+/*
+ * Android's /data/app path contains an install-specific "~~..." component, so
+ * hard-coding a path such as /data/app/.../lib/arm64 is not reliable.  When
+ * libltw.so is loaded from the launcher, its mapped path gives us the exact
+ * native-library directory for that installation.
+ */
+static int find_ltw_native_dir(char *nativeDir, size_t nativeDirSize) {
+    FILE *maps = fopen("/proc/self/maps", "r");
+    char line[PATH_MAX + 256];
+
+    if(maps == NULL) {
+        return 0;
+    }
+
+    while(fgets(line, sizeof(line), maps) != NULL) {
+        char *libraryPath = strchr(line, '/');
+        char *libraryName;
+        size_t directoryLength;
+
+        if(libraryPath == NULL || strstr(libraryPath, "/libltw.so") == NULL) {
+            continue;
+        }
+
+        libraryName = strrchr(libraryPath, '/');
+        if(libraryName == NULL) {
+            continue;
+        }
+
+        directoryLength = (size_t)(libraryName - libraryPath);
+        if(directoryLength + 1 > nativeDirSize) {
+            continue;
+        }
+
+        memcpy(nativeDir, libraryPath, directoryLength);
+        nativeDir[directoryLength] = '\0';
+        fclose(maps);
+        return 1;
+    }
+
+    fclose(maps);
+    return 0;
+}
+
 __attribute__((constructor, used)) void proc_init(){
-    // ANGLE-first strategy for Vulkan rendering
+    // ANGLE-first strategy for Vulkan rendering.
     const char* angleEglPath = "libEGL_angle.so";
-    const char* systemEglPath = "libEGL.so";
-    const char* eglPath = NULL;
-    
-    // Priority 1: Environment override (testing only)
+    const char* eglPath = angleEglPath;
+    char nativeDir[PATH_MAX];
+    char launcherEglPath[PATH_MAX];
+    int hasExplicitPath = 0;
+
+    // Priority 1: Explicit EGL override.
     if(getenv("LIBGL_EGL") != NULL) {
         eglPath = getenv("LIBGL_EGL");
         printf("LTWInit: Using LIBGL_EGL override: %s\n", eglPath);
     }
-    // Priority 2: ANGLE (LD_LIBRARY_PATH must be set by launcher)
-    else {
-        eglPath = angleEglPath;
+    // Priority 2: Explicit launcher native-library directory.
+    else if(getenv("LTW_ANGLE_LIB_DIR") != NULL) {
+        snprintf(launcherEglPath, sizeof(launcherEglPath), "%s/%s",
+                 getenv("LTW_ANGLE_LIB_DIR"), angleEglPath);
+        eglPath = launcherEglPath;
+        hasExplicitPath = 1;
+        printf("LTWInit: Using LTW_ANGLE_LIB_DIR: %s\n", eglPath);
     }
-    
+    // Priority 3: Resolve the directory that contains libltw.so.  This handles
+    // randomized Android paths such as /data/app/~~.../lib/arm64.
+    else if(find_ltw_native_dir(nativeDir, sizeof(nativeDir))) {
+        snprintf(launcherEglPath, sizeof(launcherEglPath), "%s/%s",
+                 nativeDir, angleEglPath);
+        eglPath = launcherEglPath;
+        hasExplicitPath = 1;
+        printf("LTWInit: Resolved ANGLE from libltw.so directory: %s\n", eglPath);
+    }
+
     int flags = RTLD_LAZY | RTLD_LOCAL;
     void* eglHandle = dlopen(eglPath, flags);
+
+    // Keep the normal linker lookup as a fallback for launchers that expose
+    // their native-library directory through the linker namespace only.
+    if(eglHandle == NULL && hasExplicitPath) {
+        printf("LTWInit: Failed to load explicit ANGLE path %s: %s\n", eglPath, dlerror());
+        eglPath = angleEglPath;
+        eglHandle = dlopen(eglPath, flags);
+    }
     
     if(eglHandle == NULL) {
         printf("LTWInit: FATAL - Failed to load %s: %s\n", eglPath, dlerror());
-        printf("LTWInit: Ensure launcher called setLdLibraryPath(nativedir) before loading LTW\n");
+        printf("LTWInit: Ensure libEGL_angle.so is packaged beside libltw.so or set "
+               "LTW_ANGLE_LIB_DIR\n");
         error_sysegl();
     }
     

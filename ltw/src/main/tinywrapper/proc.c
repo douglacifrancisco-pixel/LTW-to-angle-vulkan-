@@ -39,12 +39,6 @@ static void init_es3_proc() {
 #undef GLESFUNC
 }
 
-/*
- * Android's /data/app path contains an install-specific "~~..." component, so
- * hard-coding a path such as /data/app/.../lib/arm64 is not reliable.  When
- * libltw.so is loaded from the launcher, its mapped path gives us the exact
- * native-library directory for that installation.
- */
 static int find_ltw_native_dir(char *nativeDir, size_t nativeDirSize) {
     FILE *maps = fopen("/proc/self/maps", "r");
     char line[PATH_MAX + 256];
@@ -82,20 +76,83 @@ static int find_ltw_native_dir(char *nativeDir, size_t nativeDirSize) {
     return 0;
 }
 
+static void angle_make_current_early() {
+    EGLDisplay (*fn_eglGetDisplay)(EGLNativeDisplayType) =
+        (EGLDisplay(*)(EGLNativeDisplayType))host_eglGetProcAddress("eglGetDisplay");
+    EGLBoolean (*fn_eglInitialize)(EGLDisplay, EGLint*, EGLint*) =
+        (EGLBoolean(*)(EGLDisplay, EGLint*, EGLint*))host_eglGetProcAddress("eglInitialize");
+    EGLBoolean (*fn_eglChooseConfig)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*) =
+        (EGLBoolean(*)(EGLDisplay, const EGLint*, EGLConfig*, EGLint, EGLint*))host_eglGetProcAddress("eglChooseConfig");
+    EGLSurface (*fn_eglCreatePbufferSurface)(EGLDisplay, EGLConfig, const EGLint*) =
+        (EGLSurface(*)(EGLDisplay, EGLConfig, const EGLint*))host_eglGetProcAddress("eglCreatePbufferSurface");
+    EGLContext (*fn_eglCreateContext)(EGLDisplay, EGLConfig, EGLContext, const EGLint*) =
+        (EGLContext(*)(EGLDisplay, EGLConfig, EGLContext, const EGLint*))host_eglGetProcAddress("eglCreateContext");
+    EGLBoolean (*fn_eglMakeCurrent)(EGLDisplay, EGLSurface, EGLSurface, EGLContext) =
+        (EGLBoolean(*)(EGLDisplay, EGLSurface, EGLSurface, EGLContext))host_eglGetProcAddress("eglMakeCurrent");
+
+    if(!fn_eglGetDisplay || !fn_eglInitialize || !fn_eglChooseConfig ||
+       !fn_eglCreatePbufferSurface || !fn_eglCreateContext || !fn_eglMakeCurrent) {
+        printf("LTWInit: angle_make_current_early: missing EGL functions\n");
+        return;
+    }
+
+    EGLDisplay dpy = fn_eglGetDisplay(EGL_DEFAULT_DISPLAY);
+    if(dpy == EGL_NO_DISPLAY) {
+        printf("LTWInit: angle_make_current_early: eglGetDisplay failed\n");
+        return;
+    }
+
+    EGLint major, minor;
+    if(!fn_eglInitialize(dpy, &major, &minor)) {
+        printf("LTWInit: angle_make_current_early: eglInitialize failed\n");
+        return;
+    }
+
+    EGLint config_attribs[] = {
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+        EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
+        EGL_NONE
+    };
+    EGLConfig config;
+    EGLint num_configs;
+    if(!fn_eglChooseConfig(dpy, config_attribs, &config, 1, &num_configs) || num_configs == 0) {
+        printf("LTWInit: angle_make_current_early: eglChooseConfig failed\n");
+        return;
+    }
+
+    EGLint pbuf_attribs[] = { EGL_WIDTH, 1, EGL_HEIGHT, 1, EGL_NONE };
+    EGLSurface surf = fn_eglCreatePbufferSurface(dpy, config, pbuf_attribs);
+    if(surf == EGL_NO_SURFACE) {
+        printf("LTWInit: angle_make_current_early: eglCreatePbufferSurface failed\n");
+        return;
+    }
+
+    EGLint ctx_attribs[] = { EGL_CONTEXT_MAJOR_VERSION, 3, EGL_CONTEXT_MINOR_VERSION, 0, EGL_NONE };
+    EGLContext ctx = fn_eglCreateContext(dpy, config, EGL_NO_CONTEXT, ctx_attribs);
+    if(ctx == EGL_NO_CONTEXT) {
+        printf("LTWInit: angle_make_current_early: eglCreateContext failed\n");
+        return;
+    }
+
+    if(!fn_eglMakeCurrent(dpy, surf, surf, ctx)) {
+        printf("LTWInit: angle_make_current_early: eglMakeCurrent failed\n");
+        return;
+    }
+
+    printf("LTWInit: ANGLE context made current early (pbuffer 1x1)\n");
+}
+
 __attribute__((constructor, used)) void proc_init(){
-    // ANGLE-first strategy for Vulkan rendering.
     const char* angleEglPath = "libEGL_angle.so";
     const char* eglPath = angleEglPath;
     char nativeDir[PATH_MAX];
     char launcherEglPath[PATH_MAX];
     int hasExplicitPath = 0;
 
-    // Priority 1: Explicit EGL override.
     if(getenv("LIBGL_EGL") != NULL) {
         eglPath = getenv("LIBGL_EGL");
         printf("LTWInit: Using LIBGL_EGL override: %s\n", eglPath);
     }
-    // Priority 2: Explicit launcher native-library directory.
     else if(getenv("LTW_ANGLE_LIB_DIR") != NULL) {
         snprintf(launcherEglPath, sizeof(launcherEglPath), "%s/%s",
                  getenv("LTW_ANGLE_LIB_DIR"), angleEglPath);
@@ -103,8 +160,6 @@ __attribute__((constructor, used)) void proc_init(){
         hasExplicitPath = 1;
         printf("LTWInit: Using LTW_ANGLE_LIB_DIR: %s\n", eglPath);
     }
-    // Priority 3: Resolve the directory that contains libltw.so.  This handles
-    // randomized Android paths such as /data/app/~~.../lib/arm64.
     else if(find_ltw_native_dir(nativeDir, sizeof(nativeDir))) {
         snprintf(launcherEglPath, sizeof(launcherEglPath), "%s/%s",
                  nativeDir, angleEglPath);
@@ -116,28 +171,25 @@ __attribute__((constructor, used)) void proc_init(){
     int flags = RTLD_LAZY | RTLD_LOCAL;
     void* eglHandle = dlopen(eglPath, flags);
 
-    // Keep the normal linker lookup as a fallback for launchers that expose
-    // their native-library directory through the linker namespace only.
     if(eglHandle == NULL && hasExplicitPath) {
         printf("LTWInit: Failed to load explicit ANGLE path %s: %s\n", eglPath, dlerror());
         eglPath = angleEglPath;
         eglHandle = dlopen(eglPath, flags);
     }
-    
+
     if(eglHandle == NULL) {
         printf("LTWInit: FATAL - Failed to load %s: %s\n", eglPath, dlerror());
-        printf("LTWInit: Ensure libEGL_angle.so is packaged beside libltw.so or set "
-               "LTW_ANGLE_LIB_DIR\n");
+        printf("LTWInit: Ensure libEGL_angle.so is packaged beside libltw.so or set LTW_ANGLE_LIB_DIR\n");
         error_sysegl();
     }
-    
+
     host_eglGetProcAddress = dlsym(eglHandle, "eglGetProcAddress");
     if(host_eglGetProcAddress == NULL) error_sysegl();
     init_egl();
     init_es3_proc();
+    angle_make_current_early();
 }
 
-// This is exported for it to be automatically picked up by LWJGL's symbol resolver.
 __attribute__((used)) eglMustCastToProperFunctionPointerType glXGetProcAddress(const char *procname) {
     return eglGetProcAddress(procname);
 }
@@ -145,8 +197,6 @@ __attribute__((used)) eglMustCastToProperFunctionPointerType glXGetProcAddress(c
 extern void* resolve_stub(const char* procname);
 
 eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
-    // EGL functions that we implement.
-    // All of the other platform EGL functions will be redirected into Android's default EGL implementation.
     if(!strncmp(procname, "egl", 3)) {
         if(!strcmp("eglCreateContext", procname)) return (eglMustCastToProperFunctionPointerType) eglCreateContext;
         if(!strcmp("eglDestroyContext", procname)) return (eglMustCastToProperFunctionPointerType) eglDestroyContext;
@@ -165,11 +215,10 @@ eglMustCastToProperFunctionPointerType eglGetProcAddress(const char *procname) {
         if(!strcmp("eglGetCurrentDisplay", procname)) return (eglMustCastToProperFunctionPointerType) eglGetCurrentDisplay;
         if(!strcmp("eglGetCurrentSurface", procname)) return (eglMustCastToProperFunctionPointerType) eglGetCurrentSurface;
     }
-    // If the function doesn't start with "gl", don't even bother, pass through immediately.
     if(strncmp(procname, "gl", 2) != 0) goto fallback;
 #define GLESOVERRIDE(name)                                        \
     if(!strcmp(procname, #name)) {                                \
-        printf("LTW: Overridden %s\n", #name);                        \
+        printf("LTW: Overridden %s\n", #name);                   \
         return (eglMustCastToProperFunctionPointerType) name;     \
     }
 #include "es3_overrides.h"

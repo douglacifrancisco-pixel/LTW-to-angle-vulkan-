@@ -108,6 +108,12 @@ static void angle_make_current_early() {
         return;
     }
 
+    EGLint major2, minor2;
+    if(!fn_eglInitialize(dpy, &major2, &minor2)) {
+        printf("LTWInit: angle_make_current_early: eglInitialize failed\n");
+        return;
+    }
+    printf("LTWInit: angle_make_current_early: EGL %d.%d initialized\n", major2, minor2);
     EGLint config_attribs[] = {
         EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
         EGL_SURFACE_TYPE, EGL_PBUFFER_BIT,
